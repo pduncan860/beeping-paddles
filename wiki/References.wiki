@@ -4,21 +4,21 @@
 
 Virtually every system ever developed utilizes a component that was developed or influenced by another, outside developer. In support of both proper attribution and the sharing of information, a list of all references used for this project is given below and organized by subsystem.
 
-* Memory
- # [ftp://ftp.altera.com/up/pub/Webdocs/DE2_UserManual.pdf Altera DE2 User Manual]
- # [http://www.issi.com/pdf/61LV25616AL.pdf ISSI IS61LV25616AL-10TL Data Sheet]
-
 * Audio
  # ?
 
-* Video
- # [http://www.analog.com/static/imported-files/data_sheets/ADV7123.pdf Analog Devices ADV7123 Data Sheet]
- # [http://www.epanorama.net/documents/pc/vga_timing.html VGA Timing]
+* Game
+ # [http://www.fpga4fun.com/PongGame.html Pong Game]
 
 * Input
  # [ftp://ftp.altera.com/up/pub/Webdocs/DE2_UserManual.pdf Altera DE2 User Manual]
  # [http://www.gamesx.com/controldata/snesdat.htm SNES Joystick Data]
  # [http://www.mit.edu/~tarvizo/nes-controller.html NES Controller]
 
-* Game
- # [http://www.fpga4fun.com/PongGame.html Pong Game]
+* Memory
+ # [ftp://ftp.altera.com/up/pub/Webdocs/DE2_UserManual.pdf Altera DE2 User Manual]
+ # [http://www.issi.com/pdf/61LV25616AL.pdf ISSI IS61LV25616AL-10TL Data Sheet]
+
+* Video
+ # [http://www.analog.com/static/imported-files/data_sheets/ADV7123.pdf Analog Devices ADV7123 Data Sheet]
+ # [http://www.epanorama.net/documents/pc/vga_timing.html VGA Timing]
