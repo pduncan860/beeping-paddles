@@ -15,6 +15,7 @@ Virtually every system ever developed utilizes a component that was developed or
  # [ftp://ftp.altera.com/up/pub/Webdocs/DE2_UserManual.pdf Altera DE2 User Manual]
  # [http://www.gamesx.com/controldata/snesdat.htm SNES Joystick Data]
  # [http://www.mit.edu/~tarvizo/nes-controller.html NES Controller]
+ # [http://web.mit.edu/6.111/www/s2004/PROJECTS/2/nes.htm iGamePlay]
 
 * Memory
  # [ftp://ftp.altera.com/up/pub/Webdocs/DE2_UserManual.pdf Altera DE2 User Manual]
