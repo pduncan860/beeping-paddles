@@ -44,27 +44,32 @@
 `define LO 1'b0
 `define HI 1'b1
 
-`timescale 1ns/100ps
-
 
 module bp_system(
 	//-- system --------------------------------------------------------------//
 	input				CLOCK_27, CLOCK_50,
 	input [3:0]			KEY,
+	input [17:0] 		SW,
 	
 	//-- audio ---------------------------------------------------------------//
+	output				I2C_SCLK,
+	inout				I2C_SDAT,
 	
+	output				TD_RESET,
+	
+	output				AUD_ADCLRCK, AUD_DACLRCK, AUD_XCK,
+	inout				AUD_BCLK,
+	input				AUD_ADCDAT,
+	output				AUD_DACDAT,
 	
 	//-- input ---------------------------------------------------------------//
 	inout [35:0]		GPIO_0, GPIO_1,
 	
 	//-- video ---------------------------------------------------------------//
 	output				VGA_SYNC, VGA_HS, VGA_VS, VGA_BLANK, VGA_CLK,
-	output [9:0]		VGA_R, VGA_G, VGA_B,
-	
-	input [17:0] SW,
-	output [17:0] LEDR
+	output [9:0]		VGA_R, VGA_G, VGA_B
 );
+
 
 //-- system ------------------------------------------------------------------//
 
@@ -75,17 +80,21 @@ wire reset_hard;
 assign reset_hard = KEY[0];
 
 parameter 
-		  // SYSTEM STATES (000-099) //
-		  S_SYS_INIT		= 'd000,
-		  S_SYS_WAIT		= 'd001,
-		  // GAME STATES   (100-199) //
-		  // VIDEO STATES  (200-299) //
-		  S_VID_CLEAR		= 'd200,
-		  S_VID_DRAW_FIELD	= 'd201,
-		  S_VID_DRAW_SCORE  = 'd202,
-		  S_VID_DRAW_PADDLE = 'd203;
+		  // SYSTEM STATES (00-09) //
+		  S_SYS_INIT		= 'd00,
+		  S_SYS_WAIT		= 'd01,
+		  // GAME STATES   (10-19) //
+		  S_GAME_CHECK		= 'd10,
+		  S_GAME_WIN_P1		= 'd11,
+		  S_GAME_WIN_P2		= 'd12,
+		  // VIDEO STATES  (20-29) //
+		  S_VID_CLEAR		= 'd20,
+		  S_VID_DRAW_FIELD	= 'd21,
+		  S_VID_DRAW_SCORE  = 'd22,
+		  S_VID_DRAW_PADDLE = 'd23,
+		  S_VID_DRAW_BALL	= 'd24;
 
-reg [8:0] S = S_SYS_INIT, 
+reg [4:0] S = S_SYS_INIT, 
 		  NS;
 
 always @(posedge CLOCK_50 or negedge reset_hard) begin
@@ -101,6 +110,10 @@ always @(*) begin
 	case (S)
 		S_SYS_INIT: begin
 			NS = S_VID_CLEAR;
+		end
+		
+		S_SYS_WAIT: begin
+			NS = S_SYS_WAIT;
 		end
 		
 		S_VID_CLEAR: begin
@@ -123,7 +136,7 @@ always @(*) begin
 		
 		S_VID_DRAW_SCORE: begin
 			if (gun_done) begin
-				NS = S_VID_DRAW_PADDLE;
+				NS = S_GAME_CHECK;
 			end
 			else begin
 				NS = S_VID_DRAW_SCORE;
@@ -132,61 +145,415 @@ always @(*) begin
 		
 		S_VID_DRAW_PADDLE: begin
 			if (gun_done) begin
-				NS = S_VID_DRAW_FIELD;
+				NS = S_VID_DRAW_BALL;
 			end
 			else begin
 				NS = S_VID_DRAW_PADDLE;
 			end
 		end
 		
-		S_SYS_WAIT: begin
+		S_VID_DRAW_BALL: begin
+			if (gun_done) begin
+				NS = S_VID_DRAW_FIELD;
+			end
+			else begin
+				NS = S_VID_DRAW_BALL;
+			end
+		end
+		
+		S_GAME_CHECK: begin
+			NS = S_VID_DRAW_PADDLE;
+		
+			if (p1_score >= MAX_SCORE) begin
+				NS = S_GAME_WIN_P1;
+			end
+			
+			if (p2_score >= MAX_SCORE) begin
+				NS = S_GAME_WIN_P2;
+			end
+		end
+		
+		S_GAME_WIN_P1: begin
 			NS = S_SYS_WAIT;
 		end
+		
+		S_GAME_WIN_P2: begin
+			NS = S_SYS_WAIT;
+		end
+		
 	endcase
 end
 
 //-- game --------------------------------------------------------------------//
 
-parameter MAX_SCORE = 'd10,
-          MIN_PADDLE_Y = RGN_FIELD_THICK,
-		  MAX_PADDLE_Y = VGA_HEIGHT - RGN_FIELD_THICK - RGN_PADDLE_HEIGHT - 1;
+parameter MAX_SCORE 		= 'd10,
+
+          MIN_PADDLE_Y 		= RGN_FIELD_THICK,
+		  MAX_PADDLE_Y 		= VGA_HEIGHT - RGN_FIELD_THICK - RGN_PADDLE_HEIGHT - 1,
+		  
+		  MAX_BALL_SPEED 	= 3'd6,
+		  START_BALL_SPEED 	= 3'd1,
+		  START_BALL_X		= (VGA_WIDTH >> 1) - (RGN_BALL_SIZE >> 1),
+		  START_BALL_Y		= (VGA_HEIGHT >> 1) - (RGN_BALL_SIZE >> 1);
 
 wire [3:0] paddle_speed = (SW[3:0] > 4'd0) ? SW[3:0] : 4'd2,
 		   paddle_turbo = (SW[7:4] > 4'd0) ? SW[7:4] : 4'd5;
+		   
+reg [3:0] p1_speed = 4'd0,
+		  p2_speed = 4'd0;
 
 reg [3:0] p1_score = 4'd0,
 		  p2_score = 4'd0;
 
 reg [9:0] p1_paddle_x = RGN_FIELD_THICK,
-          p2_paddle_x = VGA_WIDTH - RGN_FIELD_THICK - RGN_PADDLE_WIDTH;
+          p2_paddle_x = VGA_WIDTH - (RGN_FIELD_THICK << 1) - RGN_PADDLE_WIDTH;
 		  
 reg [8:0] p1_paddle_y = (VGA_HEIGHT >> 1) - (RGN_PADDLE_HEIGHT >> 1),
           p2_paddle_y = (VGA_HEIGHT >> 1) - (RGN_PADDLE_HEIGHT >> 1);
 
-reg [9:0] ball_x, ball_y;
+reg [9:0] ball_x = START_BALL_X, 
+          ball_y = START_BALL_Y, 
+          ball_ox = START_BALL_X, 
+          ball_oy = START_BALL_Y;
+          
+reg [3:0] ball_vx = { 1'b0, START_BALL_SPEED }, 
+		  ball_vy = 4'd0;
 
-always @(posedge input_clock) begin
-	if (button1[9] && p2_paddle_y > MIN_PADDLE_Y) begin
-		if (button1[2]) begin
-			p2_paddle_y = p2_paddle_y - paddle_turbo;
-		end
-		else begin
-			p2_paddle_y = p2_paddle_y - paddle_speed;
-		end
+
+// paddle control //
+always @(posedge input_clock or negedge reset_hard) begin
+	if (!reset_hard) begin
+		p1_paddle_y <= (VGA_HEIGHT >> 1) - (RGN_PADDLE_HEIGHT >> 1);
+		p2_paddle_y <= (VGA_HEIGHT >> 1) - (RGN_PADDLE_HEIGHT >> 1);
+		
+		p1_speed <= 4'd0;
+		p2_speed <= 4'd0;
 	end
-	else if (button1[8] && p2_paddle_y < MAX_PADDLE_Y) begin
-		if (button1[2]) begin
-			p2_paddle_y = p2_paddle_y + paddle_turbo;
-		end
-		else begin
-			p2_paddle_y = p2_paddle_y + paddle_speed;
+	else begin	
+		p1_speed <= 4'd0;
+		p2_speed <= 4'd0;
+	
+		// P1 sending input
+		//if (button0 > 12'd0) begin		
+		//	if (button0[9]) begin			// up
+			if (~KEY[1]) begin
+				p1_speed[3] <= `HI;
+				
+				//	if (button0[2]) begin			// RB
+				if (~KEY[2]) begin
+					p1_speed[2:0] <= paddle_turbo[2:0];
+				end
+				else begin
+					p1_speed[2:0] <= paddle_speed[2:0];
+				end
+			
+				if (p1_paddle_y - p1_speed[2:0] >= MIN_PADDLE_Y &&
+					!(p1_paddle_y - p1_speed[2:0] > p1_paddle_y)) begin
+					p1_paddle_y <= p1_paddle_y - p1_speed[2:0];
+				end
+				else begin
+					p1_paddle_y <= MIN_PADDLE_Y;
+				end
+			end
+		//	else if (button0[8]) begin		// down
+			else if (~KEY[3]) begin
+				p1_speed[3] <= `LO;
+			
+				//	if (button0[2]) begin			// RB
+				if (~KEY[2]) begin
+					p1_speed[2:0] <= paddle_turbo[2:0];
+				end
+				else begin
+					p1_speed[2:0] <= paddle_speed[2:0];
+				end
+			
+				if (p1_paddle_y + p1_speed[2:0] <= MAX_PADDLE_Y) begin
+					p1_paddle_y <= p1_paddle_y + p1_speed[2:0];
+				end
+				else begin
+					p1_paddle_y <= MAX_PADDLE_Y;
+				end
+			end
+		//end
+		
+		// P2 sending input
+		if (button1 > 12'd0) begin				
+			if (button1[9]) begin			// up
+				p2_speed[3] <= `HI;
+				
+				if (button1[2]) begin			// RB
+					p2_speed[2:0] <= paddle_turbo[2:0];
+				end
+				else begin
+					p2_speed[2:0] <= paddle_speed[2:0];
+				end
+			
+				if (p2_paddle_y - p2_speed[2:0] >= MIN_PADDLE_Y &&
+					!(p2_paddle_y - p2_speed[2:0] > p2_paddle_y)) begin
+					p2_paddle_y <= p2_paddle_y - p2_speed[2:0];
+				end
+				else begin
+					p2_paddle_y <= MIN_PADDLE_Y;
+				end
+			end
+			else if (button1[8]) begin		// down
+				p2_speed[3] <= `LO;
+				
+				if (button1[2]) begin			// RB
+					p2_speed[2:0] <= paddle_turbo[2:0];
+				end
+				else begin
+					p2_speed[2:0] <= paddle_speed[2:0];
+				end
+			
+				if (p2_paddle_y + p2_speed[2:0] <= MAX_PADDLE_Y) begin
+					p2_paddle_y <= p2_paddle_y + p2_speed[2:0];
+				end
+				else begin
+					p2_paddle_y <= MAX_PADDLE_Y;
+				end
+			end
 		end
 	end
 end
 
+// ball logic //
+always @(posedge input_clock or negedge reset_hard) begin
+	if (!reset_hard) begin
+		ball_x <= START_BALL_X; 
+        ball_y <= START_BALL_Y; 
+        ball_ox <= START_BALL_X;
+        ball_oy <= START_BALL_Y;	
+        
+        ball_vx <= { 1'b0, START_BALL_SPEED };
+        ball_vy <= 4'd0;
+        
+        beep_state <= `LO;
+        
+        p1_score <= 4'd0;
+        p2_score <= 4'd0;
+	end
+	else begin
+		if (S != S_SYS_WAIT) begin
+	
+		beep_state <= `LO;
+	
+        ball_ox <= ball_x;
+        ball_oy <= ball_y;
+	
+		// ball moving left
+		if (ball_vx[3]) begin
+			// ball not at edge of field
+			if (ball_x - ball_vx[2:0] > 10'd0 &&
+			    !(ball_x - ball_vx[2:0] > ball_x)) begin
+			    // ball hitting p1 paddle?
+				if (ball_x - ball_vx[2:0] <= p1_paddle_x + RGN_PADDLE_WIDTH) begin
+					// ball in front of paddle?
+					if (ball_y >= p1_paddle_y && ball_y < p1_paddle_y + RGN_PADDLE_HEIGHT) begin
+						play_paddle_beep();
+					
+						ball_x <= p1_paddle_x + RGN_PADDLE_WIDTH;
+						ball_vx <= { ~ball_vx[3], (ball_vx[2:0] < 3'b111) ? ball_vx[2:0] + 1'b1 : MAX_BALL_SPEED };
+						
+						// no reflection if paddle and ball going same direction
+						if (p1_speed[2:0] > 3'b000) begin
+							if (ball_vy[3] == p1_speed[3]) begin
+								ball_vy[2:0] <= 
+									// clamp speed to 3'b111
+									(ball_vy[2:0] + p1_speed[2:0] < MAX_BALL_SPEED) ? 
+										ball_vy[2:0] + p1_speed[2:0] : 
+										MAX_BALL_SPEED;
+							end
+							// possibly reflect
+							else begin
+								// no reflection possible
+								if (ball_vy[2:0] >= p1_speed[2:0]) begin
+									ball_vy[2:0] <=
+										// clamp speed to 3'b000
+										(ball_vy[2:0] - p1_speed[2:0] > 3'b000) ?
+											ball_vy[2:0] - p1_speed[2:0] :
+											3'b000;
+								end
+								// reflect
+								else begin
+									ball_vy <= {
+										~ball_vy[3],
+										p1_speed[2:0] - ball_vy[2:0]
+									};
+								end
+							end
+						end
+					end
+					// ball not in front of paddle
+					else begin
+						ball_x <= ball_x - ball_vx[2:0];
+					end
+				end
+				// ball not hitting p1 paddle
+				else begin
+					ball_x <= ball_x - ball_vx[2:0];
+				end
+			end
+			// ball at edge of field
+			else begin
+				// score p2
+				p2_score <= p2_score + 1'd1;
+				play_score_beep();
+				
+				ball_x <= START_BALL_X;
+				ball_y <= START_BALL_Y;
+				ball_vx <= { ~ball_vx[3], START_BALL_SPEED };
+				ball_vy <= 4'd0;
+			end
+		end
+		// ball moving right
+		else begin
+			// ball not at edge of field
+			if (ball_x + ball_vx[2:0] < VGA_WIDTH - RGN_BALL_SIZE - 1) begin
+				// ball hitting p2 paddle?
+				if (ball_x + ball_vx[2:0] > p2_paddle_x - RGN_BALL_SIZE) begin
+					// ball in front of paddle?
+					if (ball_y >= p2_paddle_y && ball_y < p2_paddle_y + RGN_PADDLE_HEIGHT) begin
+						play_paddle_beep();
+					
+						ball_x <= p2_paddle_x - RGN_BALL_SIZE;
+						ball_vx <= { ~ball_vx[3], (ball_vx[2:0] < MAX_BALL_SPEED) ? ball_vx[2:0] + 1'b1 : MAX_BALL_SPEED };
+						
+						// no reflection if paddle and ball going same direction
+						if (p2_speed[2:0] > 3'b000) begin
+							if (ball_vy[3] == p2_speed[3]) begin
+								ball_vy[2:0] <= 
+									// clamp speed to 3'b111
+									(ball_vy[2:0] + p2_speed[2:0] < MAX_BALL_SPEED) ? 
+										ball_vy[2:0] + p2_speed[2:0] : 
+										MAX_BALL_SPEED;
+							end
+							// possibly reflect
+							else begin
+								// no reflection possible
+								if (ball_vy[2:0] >= p2_speed[2:0]) begin
+									ball_vy[2:0] <=
+										// clamp speed to 3'b000
+										(ball_vy[2:0] - p2_speed[2:0] > 3'b000) ?
+											ball_vy[2:0] - p2_speed[2:0] :
+											3'b000;
+								end
+								// reflect
+								else begin
+									ball_vy <= {
+										~ball_vy[3],
+										p2_speed[2:0] - ball_vy[2:0]
+									};
+								end
+							end
+						end
+					end
+					// ball not in front of paddle
+					else begin
+						ball_x <= ball_x + ball_vx[2:0];
+					end
+				end
+				// ball not hitting p2 paddle
+				else begin
+					ball_x <= ball_x + ball_vx[2:0];
+				end
+			end
+			// ball at edge of field
+			else begin
+				// score p1
+				p1_score <= p1_score + 1'd1;
+				play_score_beep();
+			
+				ball_x <= START_BALL_X;
+				ball_y <= START_BALL_Y;
+				ball_vx <= { ~ball_vx[3], START_BALL_SPEED };
+				ball_vy <= 4'd0;
+			end
+		end
+		
+		// ball moving up
+		if (ball_vy[3]) begin
+			// ball not at edge of field
+			if (ball_y - ball_vy[2:0] >= RGN_FIELD_THICK &&
+			    !(ball_y - ball_vy[2:0] > ball_y)) begin
+				ball_y <= ball_y - ball_vy[2:0];
+			end
+			// ball at edge of field
+			else begin
+				ball_y <= RGN_FIELD_THICK;
+				ball_vy <= { ~ball_vy[3], ball_vy[2:0] };
+			end
+		end
+		// ball moving down
+		else begin
+			// ball not at edge of field
+			if (ball_y + ball_vy[2:0] < VGA_HEIGHT - RGN_FIELD_THICK - RGN_BALL_SIZE &&
+			    !(ball_y + ball_vy[2:0] < ball_y)) begin
+				ball_y <= ball_y + ball_vy[2:0];
+			end
+			// ball at edge of field
+			else begin
+				ball_y <= VGA_HEIGHT - RGN_FIELD_THICK - RGN_BALL_SIZE;
+				ball_vy <= { ~ball_vy[3], ball_vy[2:0] };
+			end
+		end
+		
+		end
+		else begin
+			beep_state <= `LO;
+		end
+	end
+end
+
+task play_score_beep;
+begin
+	beep_freq <= SND_SCORED_F;
+	beep_time <= SND_SCORED_T;
+	beep_state <= `HI;
+end
+endtask
+
+task play_paddle_beep;
+begin
+	beep_freq <= SND_PADDLE_F;
+	beep_time <= SND_PADDLE_T;
+	beep_state <= `HI;
+end
+endtask
+
+
 //-- audio -------------------------------------------------------------------//
 
+parameter SND_PADDLE_F	= 18'd750,
+		  SND_PADDLE_T	=  5'd  1,
+		  SND_SCORED_F	= 18'd900,
+		  SND_SCORED_T	=  5'd  3;
 
+reg beep_state = `LO;
+reg [17:0] beep_freq = SND_PADDLE_F;
+reg [4:0] beep_time = SND_PADDLE_T;
+
+
+timed_tone beeper(
+	.valid(beep_state),
+	.seconds(beep_time),
+	.key({ 3'b0, reset_hard }),
+	.sw(beep_freq),
+	
+	.clk50(CLOCK_50),
+	.clk27(CLOCK_27),
+
+	.td_reset(TD_RESET),
+
+	.i2c_sclk(I2C_SCLK),
+	.i2c_sdat(I2C_SDAT),
+	.aud_xck(AUD_XCK),
+	.aud_bclk(AUD_BCLK),
+	.aud_adclrck(AUD_ADCLRCK),
+	.aud_daclrck(AUD_DACLRCK),
+	.aud_adcdat(AUD_ADCDAT),
+	.aud_dacdat(AUD_DACDAT),
+);
 
 
 //-- video -------------------------------------------------------------------//
@@ -243,7 +610,9 @@ parameter RGN_FIELD_THICK 		= 'd4,
 		  RGN_SCORE_B_HBOTTOM	= RGN_SCORE_HEIGHT_HALF + RGN_SCORE_THICK_HALF,
 		  
 		  RGN_PADDLE_WIDTH		= 'd 4,
-		  RGN_PADDLE_HEIGHT		= 'd32;
+		  RGN_PADDLE_HEIGHT		= 'd32,
+		  
+		  RGN_BALL_SIZE			= 'd 4;
 
 always @(posedge CLOCK_50 or negedge reset_hard) begin
 	if (!reset_hard) begin
@@ -334,6 +703,27 @@ always @(posedge CLOCK_50 or negedge reset_hard) begin
 						gun_color <= draw_paddle(p2_paddle_x, p2_paddle_y);
 						gun_plot <= `HI;
 					end
+				end
+				
+				if (gun_done) begin
+					gun_plot <= `LO;
+					gun_done <= `LO;
+				end
+			end
+			
+			S_VID_DRAW_BALL: begin
+				gun_plot <= `LO;
+				
+				if (gun_x >= ball_ox && gun_x < ball_ox + RGN_BALL_SIZE &&
+				    gun_y >= ball_oy && gun_y < ball_oy + RGN_BALL_SIZE) begin
+					gun_color <= 3'b000;
+					gun_plot <= `HI;
+				end
+				
+				if (gun_x >= ball_x && gun_x < ball_x + RGN_BALL_SIZE &&
+				    gun_y >= ball_y && gun_y < ball_y + RGN_BALL_SIZE) begin
+					gun_color <= 3'b111;
+					gun_plot <= `HI;
 				end
 				
 				if (gun_done) begin
@@ -484,11 +874,11 @@ gameinput con0(
 	.clock(CLOCK_50),
 	.gameclock(input_clock),
 	.reset(reset_hard),
-	/*
-	.data(GPIO_0[DATA_PIN_HERE]),
-	.lat(GPIO_0[LATCH_PIN_HERE]),
-	.pulse(GPIO_0[PULSE_PIN_HERE]),
-	*/
+
+	.data(GPIO_0[6]),
+	.lat(GPIO_0[4]),
+	.pulse(GPIO_0[2]),
+	
 	.plyr_input(button0)
 );
 
