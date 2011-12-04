@@ -5,7 +5,8 @@
 Virtually every system ever developed utilizes a component that was developed or influenced by another, outside developer. In support of both proper attribution and the sharing of information, a list of all references used for this project is given below and organized by subsystem.
 
 * Audio
- # ?
+ # [ftp://ftp.altera.com/up/pub/Webdocs/DE2_UserManual.pdf Altera DE2 User Manual]
+ # [http://www.johnloomis.org/digitallab/audio/audio3/audio3.html John Loomis' Audio3 Project]
 
 * Game
  # [http://www.fpga4fun.com/PongGame.html Pong Game]
