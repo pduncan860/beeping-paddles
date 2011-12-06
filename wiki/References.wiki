@@ -1,4 +1,4 @@
-#summary Reference documentation used for project.
+#summary Reference documentation and libraries used for project.
 
 = References =
 
