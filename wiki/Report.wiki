@@ -28,7 +28,7 @@ TODO
 
 The input of the Beeping Paddles system was handled by a polling module which interacted with Nintendo SNES controllers via GPIO connections. The SNES controller transmits its state data in a serialized manner based on a very specific protocol. Every 16.67 ms, or at a rate of 60 Hz, the DE2 sends a 12 µs latch signal to the latch pin. This latch signal tells the controller to latch the current states of all buttons. Then, 6 µs later, the DE2 sends 16 high pulses on the Pulse/clock pin, each 6 µs long with 6 µs low in between (or a 12 µs, 50% duty, cycle). The data is fed in the following order: B, Y, Select, Start, Up, Down, Left, Right, A, X, Left bumper, Right Bumper. This data from the controller is stored to register until the next update is cued by the 60 Hz polling clock. The following timing diagram shows the first 5 buttons in the polling cycle of the SNES controller:
 
-
+https://dl-web.dropbox.com/get/Photos/SNES-Data.jpg?w=d8f0091a
 ===Video Module===
 
 TODO
