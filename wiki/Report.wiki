@@ -2,4 +2,10 @@
 
 =Report: Beeping Paddles=
 
+<pre>
+Jack Hall, Reuben Smith
+ECE 287 C, Miami University
+Fall Semester, 2011
+</pre>
+
 TODO
