@@ -1,7 +1,7 @@
 #summary Initial project proposal.
 
 =Proposal: Beeping Paddles=
-----
+
 <pre>
 Jack Hall, Reuben Smith
 ECE 287 C, Miami University
