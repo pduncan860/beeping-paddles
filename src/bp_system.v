@@ -234,13 +234,11 @@ always @(posedge input_clock or negedge reset_hard) begin
 		p2_speed <= 4'd0;
 	
 		// P1 sending input
-		//if (button0 > 12'd0) begin		
-		//	if (button0[9]) begin			// up
-			if (~KEY[1]) begin
+		if (button0 > 12'd0) begin		
+			if (button0[9]) begin			// up
 				p1_speed[3] <= `HI;
 				
-				//	if (button0[2]) begin			// RB
-				if (~KEY[2]) begin
+				if (button0[2]) begin			// RB
 					p1_speed[2:0] <= paddle_turbo[2:0];
 				end
 				else begin
@@ -255,12 +253,10 @@ always @(posedge input_clock or negedge reset_hard) begin
 					p1_paddle_y <= MIN_PADDLE_Y;
 				end
 			end
-		//	else if (button0[8]) begin		// down
-			else if (~KEY[3]) begin
+			else if (button0[8]) begin		// down
 				p1_speed[3] <= `LO;
 			
-				//	if (button0[2]) begin			// RB
-				if (~KEY[2]) begin
+				if (button0[2]) begin			// RB
 					p1_speed[2:0] <= paddle_turbo[2:0];
 				end
 				else begin
@@ -274,7 +270,7 @@ always @(posedge input_clock or negedge reset_hard) begin
 					p1_paddle_y <= MAX_PADDLE_Y;
 				end
 			end
-		//end
+		end
 		
 		// P2 sending input
 		if (button1 > 12'd0) begin				
