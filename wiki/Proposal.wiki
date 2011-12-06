@@ -1,3 +1,5 @@
+#summary Initial project proposal.
+
 =Proposal: Beeping Paddles=
 ----
 <pre>
