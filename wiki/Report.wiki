@@ -8,4 +8,30 @@ ECE 287 C, Miami University
 Fall Semester, 2011
 </pre>
 
+==Description==
+
+TODO (Describe project, goals, system)
+
+==Modules==
+
+TODO (Overview of modules in system)
+
+===System Module===
+
 TODO
+
+===Audio Module===
+
+TODO
+
+===Input Module===
+
+TODO
+
+===Video Module===
+
+TODO
+
+==Result==
+
+TODO (Discuss final project outcome, show pictures, video, etc)
