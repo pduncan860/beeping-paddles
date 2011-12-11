@@ -22,7 +22,7 @@ TODO
 
 ===Audio Module===
 
-The audio module for Beeping Paddles was developed around John Loomis’ third audio project, implementing a sine lookup table for varying frequencies of output at constant amplitude. The module produces tones of specific frequency for set increments of an eighth of a second, of which both parameters are determined by registers in game logic. This module requires a valid signal to initiate the tone output and is triggered by several cases of ball collision.
+The audio module for Beeping Paddles was developed around John Loomis’ third audio project, implementing a sine lookup table for varying frequencies of output at constant amplitude. The module produces tones of specific frequency for set increments of an eighth of a second, of which both parameters are determined by registers in the top-level module. This audio module requires a valid signal to initiate the tone output and is triggered by several cases of ball collision in the top-level module.
 John Loomis’ base code can be found [http://johnloomis.org/digitallab/audio/audio3/audio3.html here].
 
 
