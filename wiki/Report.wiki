@@ -18,7 +18,7 @@ The Beeping Paddles system is composed of three fundamental modules that are uti
 
 The first of these modules, Audio, is used in scenarios where the game logic requires output of some audio tone. The audio module is sent a specific frequency, length of playtime, and valid signal at the appropriate points in game logic (ball collisions with various objects). 
 
-The second of these modules, Controller input, is the module that handles data input from the players. This module poles for the state of the players’ SNES controllers and stores the states of the latest poll to registers which are checked by the game logic to determine various factors of gameplay including velocity and position of both the paddles and the ball.
+The second of these modules, Controller input, is the module that handles data input from the players. This module polls for the state of the players’ SNES controllers and stores the states of the latest poll to registers which are checked by the game logic to determine various factors of gameplay including velocity and position of both the paddles and the ball.
 
 
 ===System Module===
